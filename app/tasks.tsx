@@ -21,7 +21,6 @@ import {
 
 export default function TasksScreen() {
   const { groupId } = useLocalSearchParams<{ groupId: string }>();
-  const router = useRouter();
   const colorScheme = useColorScheme();
   const colors = Colors[colorScheme ?? 'light'];
 

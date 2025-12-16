@@ -20,7 +20,6 @@ export default function HomeScreen() {
   const [groupNumber, setGroupNumber] = useState("");
 
   const handleEnterGroup = () => {
-    // Navigate to tasks page with second group
     router.push({
       pathname: "/tasks",
       params: { groupId: placeholderGroups[1].id },
@@ -32,7 +31,6 @@ export default function HomeScreen() {
       return;
     }
 
-    // Try to find group by ID (e.g., "group-1", "group-2", etc.)
     const groupId = groupNumber.trim().startsWith("group-")
       ? groupNumber.trim()
       : `group-${groupNumber.trim()}`;
@@ -80,7 +78,7 @@ export default function HomeScreen() {
               ]}
               value={groupNumber}
               onChangeText={setGroupNumber}
-              placeholder="e.g., 1, 2, 3 or group-1"
+              placeholder="eg. 1234"
               placeholderTextColor={colors.icon}
               keyboardType="default"
               returnKeyType="go"
