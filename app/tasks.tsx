@@ -5,24 +5,24 @@ import { Colors } from '@/constants/theme';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import { addTask, deleteTask, getAllTasks, updateTask } from '@/lib/data/local/tasks';
 import { Task } from '@/types/task';
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import {
-    Alert,
-    KeyboardAvoidingView,
-    Modal,
-    Platform,
-    Pressable,
-    ScrollView,
-    StyleSheet,
-    TextInput,
-    View,
+  Alert,
+  KeyboardAvoidingView,
+  Modal,
+  Platform,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  TextInput,
+  View,
 } from 'react-native';
 
 export default function TasksScreen() {
   const colorScheme = useColorScheme();
   const colors = Colors[colorScheme ?? 'light'];
 
-  const [tasks, setTasks] = useState<Task[]>([]);
+  const [tasks, setTasks] = useState<Task[]>(() => getAllTasks());
   const [editingTask, setEditingTask] = useState<Task | null>(null);
   const [isModalVisible, setIsModalVisible] = useState(false);
   const [taskTitle, setTaskTitle] = useState('');
@@ -32,10 +32,6 @@ export default function TasksScreen() {
     const allTasks = getAllTasks();
     setTasks(allTasks);
   };
-
-  useEffect(() => {
-    loadTasks();
-  }, []);
 
   const handleAddTask = () => {
     setEditingTask(null);
@@ -58,7 +54,6 @@ export default function TasksScreen() {
     }
 
     if (editingTask) {
-      // Update existing task
       const updated = updateTask(editingTask.id, {
         title: taskTitle.trim(),
         description: taskDescription.trim() || undefined,
@@ -67,7 +62,6 @@ export default function TasksScreen() {
         loadTasks();
       }
     } else {
-      // Add new task
       const newTask: Task = {
         id: `task-${Date.now()}`,
         title: taskTitle.trim(),
@@ -256,7 +250,6 @@ interface TaskItemProps {
 }
 
 function TaskItem({ task, onToggleComplete, onEdit, onDelete, colors }: TaskItemProps) {
-  // Create a semi-transparent border color based on icon color
   const borderColor = colors.icon === '#687076' // light mode icon color
     ? 'rgba(104, 112, 118, 0.3)'
     : 'rgba(155, 161, 166, 0.3)'; // dark mode icon color

@@ -11,7 +11,6 @@ db.execSync(`
   );
 `);
 
-// Initialize database with seed data
 let initialized = false;
 export function initializeDatabase() {
   if (initialized) return;

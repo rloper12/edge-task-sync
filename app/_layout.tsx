@@ -1,3 +1,4 @@
+import NetInfo from '@react-native-community/netinfo';
 import { DarkTheme, DefaultTheme, ThemeProvider } from '@react-navigation/native';
 import { Stack } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
@@ -16,6 +17,19 @@ export default function RootLayout() {
 
   useEffect(() => {
     initializeDatabase();
+  }, []);
+
+  useEffect(() => {
+    const unsubscribe = NetInfo.addEventListener(state => {
+      if (state.isConnected && state.type === 'wifi') {
+        console.log('Connected to WIFI - trigger sync');
+        // sync to server
+      }
+    });
+
+    return () => {
+      unsubscribe();
+    };
   }, []);
 
   return (
