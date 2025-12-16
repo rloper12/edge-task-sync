@@ -2,10 +2,9 @@ import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { IconSymbol } from '@/components/ui/icon-symbol';
 import { Colors } from '@/constants/theme';
-import { getGroupById, getTasksByGroupId } from '@/data/placeholder';
 import { useColorScheme } from '@/hooks/use-color-scheme';
+import { addTask, deleteTask, getAllTasks, updateTask } from '@/lib/data/local/tasks';
 import { Task } from '@/types/task';
-import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useEffect, useState } from 'react';
 import {
     Alert,
@@ -20,7 +19,6 @@ import {
 } from 'react-native';
 
 export default function TasksScreen() {
-  const { groupId } = useLocalSearchParams<{ groupId: string }>();
   const colorScheme = useColorScheme();
   const colors = Colors[colorScheme ?? 'light'];
 
@@ -30,14 +28,14 @@ export default function TasksScreen() {
   const [taskTitle, setTaskTitle] = useState('');
   const [taskDescription, setTaskDescription] = useState('');
 
-  const group = groupId ? getGroupById(groupId) : null;
+  const loadTasks = () => {
+    const allTasks = getAllTasks();
+    setTasks(allTasks);
+  };
 
   useEffect(() => {
-    if (groupId) {
-      const groupTasks = getTasksByGroupId(groupId);
-      setTasks(groupTasks);
-    }
-  }, [groupId]);
+    loadTasks();
+  }, []);
 
   const handleAddTask = () => {
     setEditingTask(null);
@@ -61,17 +59,13 @@ export default function TasksScreen() {
 
     if (editingTask) {
       // Update existing task
-      setTasks((prevTasks) =>
-        prevTasks.map((task) =>
-          task.id === editingTask.id
-            ? {
-                ...task,
-                title: taskTitle.trim(),
-                description: taskDescription.trim() || undefined,
-              }
-            : task
-        )
-      );
+      const updated = updateTask(editingTask.id, {
+        title: taskTitle.trim(),
+        description: taskDescription.trim() || undefined,
+      });
+      if (updated) {
+        loadTasks();
+      }
     } else {
       // Add new task
       const newTask: Task = {
@@ -79,9 +73,9 @@ export default function TasksScreen() {
         title: taskTitle.trim(),
         description: taskDescription.trim() || undefined,
         completed: false,
-        groupId: groupId || '',
       };
-      setTasks((prevTasks) => [...prevTasks, newTask]);
+      addTask(newTask);
+      loadTasks();
     }
 
     setIsModalVisible(false);
@@ -97,18 +91,19 @@ export default function TasksScreen() {
         text: 'Delete',
         style: 'destructive',
         onPress: () => {
-          setTasks((prevTasks) => prevTasks.filter((task) => task.id !== taskId));
+          deleteTask(taskId);
+          loadTasks();
         },
       },
     ]);
   };
 
   const handleToggleComplete = (taskId: string) => {
-    setTasks((prevTasks) =>
-      prevTasks.map((task) =>
-        task.id === taskId ? { ...task, completed: !task.completed } : task
-      )
-    );
+    const task = tasks.find(t => t.id === taskId);
+    if (task) {
+      updateTask(taskId, { completed: !task.completed });
+      loadTasks();
+    }
   };
 
   const handleCancel = () => {
@@ -118,24 +113,13 @@ export default function TasksScreen() {
     setEditingTask(null);
   };
 
-  if (!group) {
-    return (
-      <ThemedView style={styles.container}>
-        <ThemedText>Group not found</ThemedText>
-      </ThemedView>
-    );
-  }
-
   return (
     <ThemedView style={styles.container}>
       <ScrollView style={styles.scrollView} contentContainerStyle={styles.scrollContent}>
         <ThemedView style={styles.header}>
-          <ThemedText type="title" style={styles.groupTitle}>
-            {group.name}
+          <ThemedText type="title" style={styles.pageTitle}>
+            Tasks
           </ThemedText>
-          {group.description && (
-            <ThemedText style={styles.groupDescription}>{group.description}</ThemedText>
-          )}
         </ThemedView>
 
         <ThemedView style={styles.tasksContainer}>
@@ -348,12 +332,8 @@ const styles = StyleSheet.create({
     marginBottom: 24,
     gap: 8,
   },
-  groupTitle: {
+  pageTitle: {
     marginBottom: 4,
-  },
-  groupDescription: {
-    opacity: 0.7,
-    fontSize: 14,
   },
   tasksContainer: {
     gap: 12,
