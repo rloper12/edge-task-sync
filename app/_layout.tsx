@@ -1,4 +1,3 @@
-import NetInfo from '@react-native-community/netinfo';
 import { DarkTheme, DefaultTheme, ThemeProvider } from '@react-navigation/native';
 import { Stack } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
@@ -6,6 +5,8 @@ import { useEffect } from 'react';
 import 'react-native-reanimated';
 
 import { useColorScheme } from '@/hooks/use-color-scheme';
+import { WebSocketContextProvider } from '@/hooks/useWebSocketContext';
+import { WifiContextProvider } from '@/hooks/useWifiContext';
 import { initializeDatabase } from '@/lib/data/local/sqlite';
 
 export const unstable_settings = {
@@ -19,32 +20,25 @@ export default function RootLayout() {
     initializeDatabase();
   }, []);
 
-  useEffect(() => {
-    const unsubscribe = NetInfo.addEventListener(state => {
-      if (state.isConnected && state.type === 'wifi') {
-        console.log('Connected to WIFI - trigger sync');
-        // sync to server
-      }
-    });
 
-    return () => {
-      unsubscribe();
-    };
-  }, []);
 
   return (
-    <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
-      <Stack>
-        <Stack.Screen name="index" options={{ headerShown: false }} />
-        <Stack.Screen 
-          name="tasks" 
-          options={{ 
-            title: 'Tasks',
-            headerShown: true,
-          }} 
-        />
-      </Stack>
-      <StatusBar style="auto" />
-    </ThemeProvider>
+    <WifiContextProvider>
+      <WebSocketContextProvider>
+        <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
+          <Stack>
+            <Stack.Screen name="index" options={{ headerShown: false }} />
+            <Stack.Screen 
+              name="tasks" 
+              options={{ 
+                title: 'Tasks',
+                headerShown: true,
+              }} 
+            />
+          </Stack>
+          <StatusBar style="auto" />
+        </ThemeProvider>
+      </WebSocketContextProvider>
+    </WifiContextProvider>
   );
 }

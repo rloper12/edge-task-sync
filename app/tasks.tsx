@@ -3,7 +3,7 @@ import { ThemedView } from '@/components/themed-view';
 import { IconSymbol } from '@/components/ui/icon-symbol';
 import { Colors } from '@/constants/theme';
 import { useColorScheme } from '@/hooks/use-color-scheme';
-import { addTask, deleteTask, getAllTasks, updateTask } from '@/lib/data/local/tasks';
+import { addTask, deleteTask, getAllTasks, updateTask } from '@/lib/data/tasks';
 import { Task } from '@/types/task';
 import { useState } from 'react';
 import {

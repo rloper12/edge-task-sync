@@ -6,7 +6,6 @@ import {
   addTask,
   deleteTask,
   getAllTasks,
-  getTask,
   updateTask,
 } from "./lib/data/server/serverTasks";
 import { Task } from "./types/task";
@@ -230,59 +229,6 @@ tasks.get(
     };
   }),
 );
-
-tasks.get("/", async (c) => {
-  const allTasks = getAllTasks();
-  return c.json(allTasks);
-});
-
-tasks.post("/", async (c) => {
-  try {
-    const task = await c.req.json();
-    if (!isTask(task)) {
-      return c.json({ error: "Invalid task format" }, 400);
-    }
-    const newTask = addTask(task);
-    return c.json(newTask, 201);
-  } catch (error) {
-    return c.json(
-      {
-        error: "Failed to create task",
-        message:
-          error instanceof Error ? error.message : "Unknown error",
-      },
-      500
-    );
-  }
-});
-
-tasks.get("/:id", async (c) => {
-  const id = c.req.param("id");
-  const task = getTask(id);
-  if (!task) {
-    return c.json({ error: "Task not found" }, 404);
-  }
-  return c.json(task);
-});
-
-tasks.put("/:id", async (c) => {
-  const id = c.req.param("id");
-  const updates = await c.req.json();
-  const updatedTask = updateTask(id, updates);
-  if (!updatedTask) {
-    return c.json({ error: "Task not found" }, 404);
-  }
-  return c.json(updatedTask);
-});
-
-tasks.delete("/:id", async (c) => {
-  const id = c.req.param("id");
-  const success = deleteTask(id);
-  if (!success) {
-    return c.json({ error: "Task not found" }, 404);
-  }
-  return c.json({ success: true });
-});
 
 const app = new Hono();
 app.use(logger());
