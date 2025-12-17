@@ -7,15 +7,15 @@ import { addTask, deleteTask, getAllTasks, updateTask } from '@/lib/data/local/t
 import { Task } from '@/types/task';
 import { useState } from 'react';
 import {
-  Alert,
-  KeyboardAvoidingView,
-  Modal,
-  Platform,
-  Pressable,
-  ScrollView,
-  StyleSheet,
-  TextInput,
-  View,
+    Alert,
+    KeyboardAvoidingView,
+    Modal,
+    Platform,
+    Pressable,
+    ScrollView,
+    StyleSheet,
+    TextInput,
+    View,
 } from 'react-native';
 
 export default function TasksScreen() {
@@ -62,11 +62,14 @@ export default function TasksScreen() {
         loadTasks();
       }
     } else {
+      const now = Date.now();
       const newTask: Task = {
-        id: `task-${Date.now()}`,
+        id: `task-${now}`,
         title: taskTitle.trim(),
         description: taskDescription.trim() || undefined,
         completed: false,
+        createdAt: now,
+        updatedAt: now,
       };
       addTask(newTask);
       loadTasks();

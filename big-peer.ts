@@ -1,0 +1,298 @@
+import { Hono } from "hono";
+import { upgradeWebSocket, websocket } from "hono/bun";
+import { logger } from "hono/logger";
+import { WSContext } from "hono/ws";
+import {
+  addTask,
+  deleteTask,
+  getAllTasks,
+  getTask,
+  updateTask,
+} from "./lib/data/server/serverTasks";
+import { Task } from "./types/task";
+
+const clients = new Set<WSContext>();
+
+function broadcast(message: string) {
+  clients.forEach((client) => {
+    try {
+      client.send(message);
+    } catch (error) {
+      console.error(`Error broadcasting to client`, error);
+    }
+  });
+}
+
+// Quick check for task type, would implement more robust solution in prod
+function isTask(obj: any): obj is Task {
+  return (
+    typeof obj === "object" &&
+    obj !== null &&
+    typeof obj.id === "string" &&
+    typeof obj.title === "string" &&
+    typeof obj.completed === "boolean" &&
+    typeof obj.createdAt === "number" &&
+    typeof obj.updatedAt === "number" &&
+    (obj.description === undefined || typeof obj.description === "string")
+  );
+}
+
+function isTaskArray(obj: any): obj is Task[] {
+  return Array.isArray(obj) && obj.every(isTask);
+}
+
+function sendError(ws: WSContext, message: string, logDetails?: any) {
+  const errorMsg = JSON.stringify({
+    type: "error",
+    message,
+  });
+  if (logDetails !== undefined) {
+    console.error(message, logDetails);
+  } else {
+    console.error(message);
+  }
+  ws.send(errorMsg);
+}
+
+function syncTasks(serverTasks: Task[], localTasks: Task[]) {
+  const serverTaskMap = new Map<string, Task>();
+  serverTasks.forEach((task) => serverTaskMap.set(task.id, task));
+
+  const syncedResults = new Map<string, Task>();
+
+  for (const localTask of localTasks) {
+    const serverTask = serverTaskMap.get(localTask.id);
+
+    if (!serverTask) {
+      // Task exists locally but not on server, add it
+      syncedResults.set(localTask.id, localTask);
+      continue;
+    }
+    // both exist, compare timestamps to find most recent
+    const localTimeStamp = localTask.updatedAt ?? localTask.createdAt ?? 0;
+    const serverTimeStamp = serverTask.updatedAt ?? serverTask.createdAt ?? 0;
+
+    const latestTask =
+      localTimeStamp > serverTimeStamp ? localTask : serverTask;
+    syncedResults.set(latestTask.id, latestTask);
+  }
+
+  // Add server tasks that dont exist locally
+  for (const serverTask of serverTasks) {
+    if (!syncedResults.has(serverTask.id)) {
+      syncedResults.set(serverTask.id, serverTask);
+    }
+  }
+
+  return Array.from(syncedResults.values());
+}
+
+const tasks = new Hono();
+
+tasks.get(
+  "/ws",
+  upgradeWebSocket((c) => {
+    return {
+      onOpen: (event, ws) => {
+        console.log("WebSocket connection established");
+        clients.add(ws);
+        ws.send(JSON.stringify({ type: "connected", message: "WebSocket connection established" }));
+      },
+      onMessage(event, ws) {
+        console.log(`Client message, type: ${event.type}, data: ${event.data}`);
+
+        try {
+          // Parse the message data if it's a string
+          let messageData: any;
+          if (typeof event.data === "string") {
+            try {
+              messageData = JSON.parse(event.data);
+            } catch (parseError) {
+              sendError(ws, "Invalid JSON format in message data", parseError);
+              return;
+            }
+          } else {
+            messageData = event.data;
+          }
+
+          if (messageData.type === "sync") {
+            const serverTasks = getAllTasks();
+            const localTasks = messageData.data;
+
+            if (!isTaskArray(localTasks)) {
+              sendError(
+                ws,
+                "Invalid task array format in sync message. Expected an array of tasks.",
+                localTasks
+              );
+              return;
+            }
+
+            const syncResults = syncTasks(serverTasks, localTasks);
+            broadcast(JSON.stringify({ type: "sync", data: syncResults }));
+            return;
+          }
+
+          if (messageData.type === "update") {
+            const data = messageData.data;
+
+            if (!isTask(data)) {
+              sendError(
+                ws,
+                "Invalid task format in update message. Expected a valid task object.",
+                data
+              );
+              return;
+            }
+
+            if (!data.id) {
+              sendError(ws, "Task ID is required for update operation.");
+              return;
+            }
+
+            const { id, ...updates } = data;
+            const result = updateTask(id, updates);
+            if (!result) {
+              sendError(ws, `Task with ID ${data.id} not found for update.`);
+              return;
+            }
+
+            broadcast(JSON.stringify({ type: "update", data: result }));
+            return;
+          }
+
+          if (messageData.type === "add") {
+            const data = messageData.data;
+
+            if (!isTask(data)) {
+              sendError(
+                ws,
+                "Invalid task format in add message. Expected a valid task object.",
+                data
+              );
+              return;
+            }
+
+            try {
+              const result = addTask(data);
+              broadcast(JSON.stringify({ type: "add", data: result }));
+            } catch (error) {
+              const errorMessage =
+                error instanceof Error ? error.message : "Unknown error";
+              sendError(ws, `Failed to add task: ${errorMessage}`, error);
+            }
+            return;
+          }
+
+          if (messageData.type === "delete") {
+            const data = messageData.data;
+
+            if (!data || typeof data.id !== "string") {
+              sendError(
+                ws,
+                "Invalid delete message format. Expected an object with an 'id' property.",
+                data
+              );
+              return;
+            }
+
+            const success = deleteTask(data.id);
+            if (!success) {
+              sendError(ws, `Task with ID ${data.id} not found for deletion.`);
+              return;
+            }
+
+            broadcast(
+              JSON.stringify({
+                type: "delete",
+                data: { id: data.id, success: true },
+              })
+            );
+            return;
+          }
+
+          // Unknown message type
+          sendError(
+            ws,
+            `Unknown message type: ${messageData.type}. Supported types are: sync, update, add, delete.`,
+            messageData.type
+          );
+        } catch (error) {
+          const errorMessage =
+            error instanceof Error ? error.message : "Unknown error";
+          sendError(ws, `Unexpected error processing message: ${errorMessage}`, error);
+        }
+      },
+      onClose: (event, ws) => {
+        console.log("Connection closed");
+        clients.delete(ws);
+      },
+    };
+  }),
+);
+
+tasks.get("/", async (c) => {
+  const allTasks = getAllTasks();
+  return c.json(allTasks);
+});
+
+tasks.post("/", async (c) => {
+  try {
+    const task = await c.req.json();
+    if (!isTask(task)) {
+      return c.json({ error: "Invalid task format" }, 400);
+    }
+    const newTask = addTask(task);
+    return c.json(newTask, 201);
+  } catch (error) {
+    return c.json(
+      {
+        error: "Failed to create task",
+        message:
+          error instanceof Error ? error.message : "Unknown error",
+      },
+      500
+    );
+  }
+});
+
+tasks.get("/:id", async (c) => {
+  const id = c.req.param("id");
+  const task = getTask(id);
+  if (!task) {
+    return c.json({ error: "Task not found" }, 404);
+  }
+  return c.json(task);
+});
+
+tasks.put("/:id", async (c) => {
+  const id = c.req.param("id");
+  const updates = await c.req.json();
+  const updatedTask = updateTask(id, updates);
+  if (!updatedTask) {
+    return c.json({ error: "Task not found" }, 404);
+  }
+  return c.json(updatedTask);
+});
+
+tasks.delete("/:id", async (c) => {
+  const id = c.req.param("id");
+  const success = deleteTask(id);
+  if (!success) {
+    return c.json({ error: "Task not found" }, 404);
+  }
+  return c.json({ success: true });
+});
+
+const app = new Hono();
+app.use(logger());
+app.route("/api/tasks", tasks);
+
+app.get("/", (c) => {
+  return c.text("Hello Hono!");
+});
+
+export default {
+  fetch: app.fetch,
+  websocket,
+};

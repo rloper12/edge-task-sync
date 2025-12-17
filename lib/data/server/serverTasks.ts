@@ -20,55 +20,53 @@ export function addTask(task: Task): Task {
     updatedAt: task.updatedAt ?? now,
   };
 
-  const stmt = db.prepareSync(`
+  const stmt = db.prepare(`
     INSERT INTO tasks (id, title, description, completed, created_at, updated_at)
     VALUES (?, ?, ?, ?, ?, ?)
   `);
 
-  stmt.executeSync([
+  stmt.run(
     tasks.id,
     tasks.title,
     tasks.description || null,
     tasks.completed ? 1 : 0,
     tasks.createdAt,
     tasks.updatedAt,
-  ]);
+  );
 
   return tasks;
 }
 
 export function getTask(id: string): Task | null {
-  const stmt = db.prepareSync(`
+  const stmt = db.prepare(`
     SELECT * FROM tasks WHERE id = ?
   `);
 
-  const result = stmt.executeSync<{
+  const row = stmt.get(id) as {
     id: string;
     title: string;
     description: string | null;
     completed: number;
     created_at: number;
     updated_at: number;
-  }>([id]);
-  const row = result.getFirstSync();
+  } | undefined;
 
   return row ? rowToTask(row) : null;
 }
 
 export function getAllTasks(): Task[] {
-  const stmt = db.prepareSync(`
+  const stmt = db.prepare(`
     SELECT * FROM tasks ORDER BY title
   `);
 
-  const result = stmt.executeSync<{
+  const rows = stmt.all() as {
     id: string;
     title: string;
     description: string | null;
     completed: number;
     created_at: number;
     updated_at: number;
-  }>();
-  const rows = result.getAllSync();
+  }[];
 
   return rows.map(rowToTask);
 }
@@ -88,72 +86,28 @@ export function updateTask(
     updatedAt: Date.now(),
   };
 
-  const stmt = db.prepareSync(`
+  const stmt = db.prepare(`
     UPDATE tasks
     SET title = ?, description = ?, completed = ?, updated_at = ?
     WHERE id = ?
   `);
 
-  stmt.executeSync([
+  stmt.run(
     updatedTask.title,
     updatedTask.description || null,
     updatedTask.completed ? 1 : 0,
     updatedTask.updatedAt,
     id,
-  ]);
+  );
 
   return updatedTask;
 }
 
 export function deleteTask(id: string): boolean {
-  const stmt = db.prepareSync(`
+  const stmt = db.prepare(`
     DELETE FROM tasks WHERE id = ?
   `);
 
-  const result = stmt.executeSync([id]);
+  const result = stmt.run(id);
   return result.changes > 0;
-}
-
-// Seed function to pre-populate database with initial data
-export function seedDatabase() {
-  const existingTasks = getAllTasks();
-  if (existingTasks.length > 0) {
-    return;
-  }
-  const now = Date.now();
-  const tasks: Task[] = [
-    {
-      id: "task-1",
-      title: "Complete quarterly report",
-      description: "Finish the Q4 financial report and submit to management",
-      completed: false,
-      createdAt: now,
-      updatedAt: now,
-    },
-    {
-      id: "task-2",
-      title: "Team meeting preparation",
-      description: "Prepare agenda and slides for the weekly team meeting",
-      completed: true,
-      createdAt: now,
-      updatedAt: now,
-    },
-    {
-      id: "task-3",
-      title: "Review code pull requests",
-      description: "Review and approve pending pull requests from the team",
-      completed: false,
-      createdAt: now,
-      updatedAt: now,
-    },
-    {
-      id: "task-4",
-      title: "Update project documentation",
-      description: "Update API documentation and user guides",
-      completed: false,
-      createdAt: now,
-      updatedAt: now,
-    },
-  ];
-  tasks.forEach((task) => addTask(task));
 }
