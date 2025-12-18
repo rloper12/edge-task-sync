@@ -48,6 +48,7 @@ Edge Task Sync is a task management application that prioritizes local data stor
 - **No Groups/Data Partition**: Currently all tasks exist for all users. Would want to add groups that users can join and authenticate into.
 - **Reconnection Strategy**: Implements exponential backoff with a maximum of 5 reconnection attempts. This retry does not function in the case the server goes offline and then back up.
 - **Data Size**: Current implementation sends entire data set to sync. Optimally, you'd want to send only changed data to minimize payload and sync compute.
+- **Data Sync Updates**: Current implementation removes all local data and replaces with the recieved data when client receives WS message of type "sync". This should be replaced with more granular data updating/mutation.
 - **Stale Data**: Current implementation syncs all data reguardless of how old/stale it is. Ideally you'd want to introduce a limit on how old data can be.
 - **Global State Pattern**: The `tasksController.ts` uses a global state pattern to track WebSocket connection status. This is noted as a TODO for improvement.
 - **Error Handling**: Network errors are logged silently to avoid showing error overlays for expected network disconnections.
@@ -136,7 +137,6 @@ UI → tasksController.addTask() → WebSocket.send({type: "add"})
 #### Adding a Task (Server Disconnected)
 ```
 UI → tasksController.addTask() → local/tasks.addTask() → SQLite → UI updates
-(Queued for sync when connection restored)
 ```
 
 #### Synchronization Flow
@@ -215,10 +215,12 @@ edge-task-sync/
 
 ### Prerequisites
 
-- **Node.js** (v18+) or **Bun** (latest)
-- **Expo CLI** (`npm install -g expo-cli`)
+- **Bun** (latest)
+- **ExpoGO Mobile App**
 - **iOS Simulator** (for iOS) or **Android Emulator** (for Android), or a physical device
 - Devices/emulators and server must be on the same WiFi network
+
+**Important**: app was only tested on actual mobile device via ExpoGo mobile app.
 
 ### Step 1: Install Dependencies
 
@@ -237,18 +239,7 @@ Create a `.env` file in the project root (you can copy from `.env.example`):
 cp .env.example .env
 ```
 
-Edit `.env` and set your server configuration:
-
-```env
-# Expo requires EXPO_PUBLIC_ prefix for client-side environment variables
-EXPO_PUBLIC_WS_SERVER_URL=ws://localhost:3000/api/tasks/ws
-EXPO_PUBLIC_BASE_SERVER_URL=http://localhost:3000
-
-# Server-side variables (used by Bun server)
-PORT=3000
-WS_SERVER_URL=ws://localhost:3000/api/tasks/ws
-BASE_SERVER_URL=http://localhost:3000
-```
+Edit `.env` and set your server configuration. 
 
 **Important**: 
 - **Expo Requirement**: Client-side variables must be prefixed with `EXPO_PUBLIC_` to be accessible in the React Native app
@@ -311,13 +302,11 @@ Then:
    - 🟢 **Green**: Connected to server
 
 2. **Test Synchronization**:
-   - Open the app on multiple devices/emulators
+   - Open the app on multipe devices/emulators or open http://localhost:3000/db-view to see a realtime view of the server's data
    - Create a task on one device
-   - It should appear on all other connected devices within seconds
+   - It should appear on all other connected devices
    - Disconnect WiFi and create a task - it should only appear locally
    - Reconnect WiFi - tasks should sync automatically
-
-3. - **Database Viewer**: The server includes a web-based database viewer accessible at `/db-view` for debugging and monitoring.
 
 ### Troubleshooting
 
@@ -348,35 +337,6 @@ Access the database viewer at `http://YOUR_IP:3000/db-view` to:
 - View all tasks stored on the server
 - Monitor real-time updates via WebSocket
 - Debug synchronization issues
-
-### Environment Variables
-
-Configuration is managed via the `.env` file. The following variables are available:
-
-```bash
-# Client-side variables (React Native/Expo)
-# Note: Expo requires EXPO_PUBLIC_ prefix for client-side access
-EXPO_PUBLIC_WS_SERVER_URL=ws://localhost:3000/api/tasks/ws
-EXPO_PUBLIC_BASE_SERVER_URL=http://localhost:3000
-
-# Server-side variables (Bun server)
-PORT=3000
-WS_SERVER_URL=ws://localhost:3000/api/tasks/ws
-BASE_SERVER_URL=http://localhost:3000
-```
-
-**Important Notes**:
-- **Expo Requirement**: Variables used in the React Native client must be prefixed with `EXPO_PUBLIC_`
-- After modifying `.env`, restart the Expo development server for changes to take effect
-- These can also be set as system environment variables, which will override the `.env` file values
-- Use `localhost` for simulators/emulators, or your machine's IP for physical devices
-
-### Development Tips
-
-- **Hot Reload**: Both the server (`bun run --hot`) and Expo support hot reloading
-- **Database Reset**: Delete `server.db` to reset the server database
-- **Local Database**: Each client has its own SQLite database (`mydb.db` in Expo)
-- **Logging**: Check browser console (Expo) and server terminal for detailed logs
 
 ---
 
