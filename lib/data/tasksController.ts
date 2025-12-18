@@ -1,12 +1,13 @@
-import { Task } from '@/types/task';
-import * as localTasks from './local/tasks';
+import { Task } from "@/types/task";
+import * as localTasks from "./local/tasks";
 
 let wsSendMessage: ((message: any) => Promise<void>) | null = null;
 let isWsConnected = false;
 
+// TODO: Find a better pattern than settting this in-memory, global state
 export function setWebSocketConnection(
   connected: boolean,
-  sendMessage: ((message: any) => Promise<void>) | null
+  sendMessage: ((message: any) => Promise<void>) | null,
 ) {
   isWsConnected = connected;
   wsSendMessage = sendMessage;
@@ -14,10 +15,9 @@ export function setWebSocketConnection(
 
 export function addTask(task: Task): Task {
   if (isWsConnected && wsSendMessage) {
-    wsSendMessage({ type: 'add', data: task }).catch(err => {
-      console.error('Failed to send add message via WebSocket:', err);
-      // Fallback to local if WS fails
-      return localTasks.addTask(task);
+    wsSendMessage({ type: "add", data: task }).catch((err) => {
+      // Log silently to avoid showing error overlays for expected network issues
+      console.log("Failed to send add message via WebSocket (handled):", err);
     });
     return localTasks.addTask(task);
   } else {
@@ -25,19 +25,18 @@ export function addTask(task: Task): Task {
   }
 }
 
-export function getTask(id: string): Task | null {
-  // Read from local db
+export async function getTask(id: string) {
   return localTasks.getTask(id);
 }
 
-export function getAllTasks(): Task[] {
-  // Read from local db
+export async function getAllTasks() {
   return localTasks.getAllTasks();
 }
 
+
 export function updateTask(
   id: string,
-  updates: Partial<Omit<Task, 'id'>>,
+  updates: Partial<Omit<Task, "id">>,
 ): Task | null {
   const currentTask = localTasks.getTask(id);
   if (!currentTask) {
@@ -51,9 +50,9 @@ export function updateTask(
   };
 
   if (isWsConnected && wsSendMessage) {
-    wsSendMessage({ type: 'update', data: updatedTask }).catch(err => {
-      console.error('Failed to send update message via WebSocket:', err);
-      return localTasks.updateTask(id, updates);
+    wsSendMessage({ type: "update", data: updatedTask }).catch((err) => {
+      // Log silently to avoid showing error overlays for expected network issues
+      console.log("Failed to send update message via WebSocket (handled):", err);
     });
     return localTasks.updateTask(id, updates);
   } else {
@@ -63,9 +62,9 @@ export function updateTask(
 
 export function deleteTask(id: string): boolean {
   if (isWsConnected && wsSendMessage) {
-    wsSendMessage({ type: 'delete', data: { id } }).catch(err => {
-      console.error('Failed to send delete message via WebSocket:', err);
-      return localTasks.deleteTask(id);
+    wsSendMessage({ type: "delete", data: { id } }).catch((err) => {
+      // Log silently to avoid showing error overlays for expected network issues
+      console.log("Failed to send delete message via WebSocket (handled):", err);
     });
     return localTasks.deleteTask(id);
   } else {

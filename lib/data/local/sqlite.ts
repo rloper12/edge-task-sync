@@ -18,14 +18,16 @@ export function initializeDatabase() {
   if (initialized) return;
   initialized = true;
   
-  // Dynamic import to break circular dependency
-  import('./tasks').then(({ seedDatabase }) => {
-    try {
-      seedDatabase();
-    } catch (error) {
-      console.error('Failed to seed database:', error);
-    }
-  }).catch((error) => {
-    console.error('Failed to import tasks module:', error);
-  });
+  // Migrate existing records that might have NULL timestamps
+  try {
+    const now = Date.now();
+    db.execSync(`
+      UPDATE tasks 
+      SET created_at = ${now}, updated_at = ${now} 
+      WHERE created_at IS NULL OR updated_at IS NULL
+    `);
+  } catch (error) {
+    // Migration might fail if columns don't exist yet, which is fine
+    console.warn('Migration warning:', error);
+  }
 }

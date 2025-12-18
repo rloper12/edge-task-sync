@@ -1,5 +1,6 @@
 import { ThemedText } from "@/components/themed-text";
 import { ThemedView } from "@/components/themed-view";
+import { WifiStatusBanner } from "@/components/wifi-status-banner";
 import { Colors } from "@/constants/theme";
 import { useColorScheme } from "@/hooks/use-color-scheme";
 import { useRouter } from "expo-router";
@@ -48,6 +49,7 @@ export default function HomeScreen() {
           </Pressable>
         </ThemedView>
       </ScrollView>
+      <WifiStatusBanner />
     </ThemedView>
   );
 }
@@ -60,6 +62,7 @@ const styles = StyleSheet.create({
     flexGrow: 1,
     justifyContent: "center",
     padding: 24,
+    paddingBottom: 60,
   },
   welcomeContainer: {
     alignItems: "center",

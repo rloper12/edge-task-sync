@@ -1,3 +1,4 @@
+import { SyncSuccessToast } from '@/components/sync-success-toast';
 import { config } from '@/lib/config';
 import * as localTasksModule from '@/lib/data/local/tasks';
 import { setWebSocketConnection } from '@/lib/data/tasksController';
@@ -33,6 +34,7 @@ export const WebSocketContextProvider = ({ children }: { children: React.ReactNo
   const { isWifiConnected } = useWifiContext();
   const [isConnected, setIsConnected] = useState(false);
   const [isConnecting, setIsConnecting] = useState(false);
+  const [syncSuccessMessage, setSyncSuccessMessage] = useState<string | null>(null);
   const wsRef = useRef<WebSocket | null>(null);
   const reconnectTimeoutRef = useRef<number | null>(null);
   const reconnectAttemptsRef = useRef(0);
@@ -71,6 +73,8 @@ export const WebSocketContextProvider = ({ children }: { children: React.ReactNo
           }
           
           isSyncingRef.current = false;
+          // Show success toast
+          setSyncSuccessMessage(`Sync successful: ${syncedTasks.length} task${syncedTasks.length !== 1 ? 's' : ''} synced`);
           break;
 
         case 'add':
@@ -107,7 +111,8 @@ export const WebSocketContextProvider = ({ children }: { children: React.ReactNo
           break;
 
         case 'error':
-          console.error('WebSocket error:', message.message, message.details);
+          // Log silently to avoid showing error overlays for expected network issues
+          console.log('WebSocket error (handled):', message.message, message.details);
           isSyncingRef.current = false;
           break;
 
@@ -115,7 +120,8 @@ export const WebSocketContextProvider = ({ children }: { children: React.ReactNo
           console.warn('Unknown message type:', (message as any).type);
       }
     } catch (error) {
-      console.error('Error parsing WebSocket message:', error);
+      // Log parsing errors silently to avoid showing error overlays
+      console.log('Error parsing WebSocket message (handled):', error);
     }
   }, []);
 
@@ -154,7 +160,8 @@ export const WebSocketContextProvider = ({ children }: { children: React.ReactNo
       ws.onmessage = handleServerMessage;
 
       ws.onerror = (error) => {
-        console.error('WebSocket error:', error);
+        // Log as info instead of error since WiFi disconnection is expected behavior
+        console.log('WebSocket connection error (expected when WiFi disconnects):', error);
         setIsConnecting(false);
       };
 
@@ -181,7 +188,8 @@ export const WebSocketContextProvider = ({ children }: { children: React.ReactNo
         }
       };
     } catch (error) {
-      console.error('Failed to create WebSocket:', error);
+      // Log connection failures silently to avoid showing error overlays
+      console.log('Failed to create WebSocket (handled):', error);
       setIsConnecting(false);
     }
   }, [isWifiConnected, handleServerMessage, sendMessage]);
@@ -202,7 +210,7 @@ export const WebSocketContextProvider = ({ children }: { children: React.ReactNo
     setIsConnected(false);
     setIsConnecting(false);
     
-    // Update unified task API with connection status
+    // Update controller with connection status
     setWebSocketConnection(false, null);
   }, []);
 
@@ -228,6 +236,11 @@ export const WebSocketContextProvider = ({ children }: { children: React.ReactNo
   return (
     <WebSocketContext.Provider value={contextValue}>
       {children}
+      <SyncSuccessToast
+        visible={syncSuccessMessage !== null}
+        message={syncSuccessMessage || ''}
+        onHide={() => setSyncSuccessMessage(null)}
+      />
     </WebSocketContext.Provider>
   );
 };

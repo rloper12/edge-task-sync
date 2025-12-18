@@ -1,11 +1,12 @@
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { IconSymbol } from '@/components/ui/icon-symbol';
+import { WifiStatusBanner } from '@/components/wifi-status-banner';
 import { Colors } from '@/constants/theme';
 import { useColorScheme } from '@/hooks/use-color-scheme';
-import { addTask, deleteTask, getAllTasks, updateTask } from '@/lib/data/tasks';
+import { addTask, deleteTask, getAllTasks, updateTask } from '@/lib/data/tasksController';
 import { Task } from '@/types/task';
-import { useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import {
     Alert,
     KeyboardAvoidingView,
@@ -22,16 +23,21 @@ export default function TasksScreen() {
   const colorScheme = useColorScheme();
   const colors = Colors[colorScheme ?? 'light'];
 
-  const [tasks, setTasks] = useState<Task[]>(() => getAllTasks());
+  const [tasks, setTasks] = useState<Task[]>([]);
   const [editingTask, setEditingTask] = useState<Task | null>(null);
   const [isModalVisible, setIsModalVisible] = useState(false);
   const [taskTitle, setTaskTitle] = useState('');
   const [taskDescription, setTaskDescription] = useState('');
 
-  const loadTasks = () => {
-    const allTasks = getAllTasks();
+  const loadTasks = useCallback(async () => {
+    const allTasks = await getAllTasks();
+    console.log('all tasks', allTasks);
     setTasks(allTasks);
-  };
+  }, []);
+
+  useEffect(() => {
+    loadTasks();
+  }, [loadTasks]);
 
   const handleAddTask = () => {
     setEditingTask(null);
@@ -122,9 +128,12 @@ export default function TasksScreen() {
         <ThemedView style={styles.tasksContainer}>
           {tasks.length === 0 ? (
             <ThemedView style={styles.emptyState}>
+              <View style={styles.emptyIconContainer}>
+                <IconSymbol name="list.bullet" size={48} color={colors.icon} />
+              </View>
               <ThemedText style={styles.emptyText}>No tasks yet</ThemedText>
               <ThemedText style={styles.emptySubtext}>
-                Tap the + button to add your first task
+                Get started by tapping the + button below to create your first task
               </ThemedText>
             </ThemedView>
           ) : (
@@ -151,6 +160,8 @@ export default function TasksScreen() {
         onPress={handleAddTask}>
         <IconSymbol name="plus" size={28} color="#fff" />
       </Pressable>
+
+      <WifiStatusBanner />
 
       <Modal
         visible={isModalVisible}
@@ -322,7 +333,7 @@ const styles = StyleSheet.create({
   },
   scrollContent: {
     padding: 16,
-    paddingBottom: 100,
+    paddingBottom: 140,
   },
   header: {
     marginBottom: 24,
@@ -337,17 +348,25 @@ const styles = StyleSheet.create({
   emptyState: {
     alignItems: 'center',
     justifyContent: 'center',
-    paddingVertical: 48,
-    gap: 8,
+    paddingVertical: 64,
+    paddingHorizontal: 32,
+    gap: 12,
+  },
+  emptyIconContainer: {
+    opacity: 0.3,
+    marginBottom: 8,
   },
   emptyText: {
-    fontSize: 18,
+    fontSize: 20,
     fontWeight: '600',
-    opacity: 0.6,
+    opacity: 0.7,
+    textAlign: 'center',
   },
   emptySubtext: {
-    fontSize: 14,
-    opacity: 0.5,
+    fontSize: 15,
+    opacity: 0.6,
+    textAlign: 'center',
+    lineHeight: 22,
   },
   taskItem: {
     flexDirection: 'row',
@@ -398,7 +417,7 @@ const styles = StyleSheet.create({
   fab: {
     position: 'absolute',
     right: 24,
-    bottom: 24,
+    bottom: 60,
     width: 56,
     height: 56,
     borderRadius: 28,

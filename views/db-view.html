@@ -1,0 +1,409 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Live Task Database Viewer</title>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+      background: #f5f5f5;
+      padding: 20px;
+    }
+    .container {
+      max-width: 1400px;
+      margin: 0 auto;
+      background: white;
+      border-radius: 8px;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+      overflow: hidden;
+    }
+    .header {
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      color: white;
+      padding: 20px 30px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    .header h1 {
+      font-size: 24px;
+      font-weight: 600;
+    }
+    .status {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 14px;
+    }
+    .status-indicator {
+      width: 10px;
+      height: 10px;
+      border-radius: 50%;
+      background: #ef4444;
+      animation: pulse 2s infinite;
+    }
+    .status-indicator.connected {
+      background: #10b981;
+      animation: none;
+    }
+    @keyframes pulse {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.5; }
+    }
+    .stats {
+      padding: 15px 30px;
+      background: #f9fafb;
+      border-bottom: 1px solid #e5e7eb;
+      display: flex;
+      gap: 30px;
+      font-size: 14px;
+      color: #6b7280;
+    }
+    .stat-item {
+      display: flex;
+      gap: 5px;
+    }
+    .stat-value {
+      font-weight: 600;
+      color: #111827;
+    }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+    }
+    thead {
+      background: #f9fafb;
+      position: sticky;
+      top: 0;
+      z-index: 10;
+    }
+    th {
+      padding: 12px 15px;
+      text-align: left;
+      font-weight: 600;
+      font-size: 12px;
+      text-transform: uppercase;
+      color: #6b7280;
+      border-bottom: 2px solid #e5e7eb;
+    }
+    td {
+      padding: 12px 15px;
+      border-bottom: 1px solid #e5e7eb;
+      font-size: 14px;
+      color: #111827;
+    }
+    tbody tr:hover {
+      background: #f9fafb;
+    }
+    .badge {
+      display: inline-block;
+      padding: 4px 8px;
+      border-radius: 4px;
+      font-size: 12px;
+      font-weight: 500;
+    }
+    .badge.completed {
+      background: #d1fae5;
+      color: #065f46;
+    }
+    .badge.pending {
+      background: #fee2e2;
+      color: #991b1b;
+    }
+    .id-cell {
+      font-family: 'Monaco', 'Menlo', monospace;
+      font-size: 11px;
+      color: #6b7280;
+      max-width: 200px;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .description-cell {
+      max-width: 300px;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+    .timestamp {
+      font-size: 12px;
+      color: #6b7280;
+      font-family: 'Monaco', 'Menlo', monospace;
+    }
+    .empty-state {
+      padding: 60px 20px;
+      text-align: center;
+      color: #6b7280;
+    }
+    .empty-state svg {
+      width: 64px;
+      height: 64px;
+      margin: 0 auto 16px;
+      opacity: 0.5;
+    }
+    .update-indicator {
+      background: #fef3c7;
+      padding: 8px 15px;
+      margin: 0 30px;
+      border-radius: 4px;
+      font-size: 12px;
+      color: #92400e;
+      display: none;
+      margin-top: 10px;
+    }
+    .update-indicator.show {
+      display: block;
+      animation: slideDown 0.3s ease;
+    }
+    @keyframes slideDown {
+      from {
+        opacity: 0;
+        transform: translateY(-10px);
+      }
+      to {
+        opacity: 1;
+        transform: translateY(0);
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="header">
+      <h1>📊 Live Task Database Viewer</h1>
+      <div class="status">
+        <span class="status-indicator" id="statusIndicator"></span>
+        <span id="statusText">Connecting...</span>
+      </div>
+    </div>
+    <div class="stats">
+      <div class="stat-item">
+        <span>Total Tasks:</span>
+        <span class="stat-value" id="totalTasks">0</span>
+      </div>
+      <div class="stat-item">
+        <span>Completed:</span>
+        <span class="stat-value" id="completedTasks">0</span>
+      </div>
+      <div class="stat-item">
+        <span>Pending:</span>
+        <span class="stat-value" id="pendingTasks">0</span>
+      </div>
+    </div>
+    <div class="update-indicator" id="updateIndicator"></div>
+    <div style="overflow-x: auto;">
+      <table>
+        <thead>
+          <tr>
+            <th>ID</th>
+            <th>Title</th>
+            <th>Description</th>
+            <th>Status</th>
+            <th>Created At</th>
+            <th>Updated At</th>
+          </tr>
+        </thead>
+        <tbody id="tableBody">
+          <tr>
+            <td colspan="6" class="empty-state">
+              <div>
+                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                </svg>
+                <p>Loading tasks...</p>
+              </div>
+            </td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <script>
+    const wsUrl = '{{WS_URL}}';
+    let ws = null;
+    let tasks = new Map();
+    let reconnectAttempts = 0;
+    const maxReconnectAttempts = 5;
+
+    function formatTimestamp(timestamp) {
+      if (!timestamp) return 'N/A';
+      const date = new Date(timestamp);
+      return date.toLocaleString();
+    }
+
+    function updateStats() {
+      const total = tasks.size;
+      const completed = Array.from(tasks.values()).filter(t => t.completed).length;
+      const pending = total - completed;
+      
+      document.getElementById('totalTasks').textContent = total;
+      document.getElementById('completedTasks').textContent = completed;
+      document.getElementById('pendingTasks').textContent = pending;
+    }
+
+    function renderTable() {
+      const tbody = document.getElementById('tableBody');
+      
+      if (tasks.size === 0) {
+        tbody.innerHTML = `
+          <tr>
+            <td colspan="6" class="empty-state">
+              <div>
+                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                </svg>
+                <p>No tasks found</p>
+              </div>
+            </td>
+          </tr>
+        `;
+        updateStats();
+        return;
+      }
+
+      const sortedTasks = Array.from(tasks.values()).sort((a, b) => 
+        (b.updatedAt || 0) - (a.updatedAt || 0)
+      );
+
+      tbody.innerHTML = sortedTasks.map(task => `
+        <tr>
+          <td class="id-cell" title="${task.id}">${task.id}</td>
+          <td>${escapeHtml(task.title)}</td>
+          <td class="description-cell" title="${escapeHtml(task.description || '')}">${escapeHtml(task.description || '')}</td>
+          <td>
+            <span class="badge ${task.completed ? 'completed' : 'pending'}">
+              ${task.completed ? '✓ Completed' : '○ Pending'}
+            </span>
+          </td>
+          <td class="timestamp">${formatTimestamp(task.createdAt)}</td>
+          <td class="timestamp">${formatTimestamp(task.updatedAt)}</td>
+        </tr>
+      `).join('');
+      
+      updateStats();
+    }
+
+    function escapeHtml(text) {
+      const div = document.createElement('div');
+      div.textContent = text;
+      return div.innerHTML;
+    }
+
+    function showUpdate(message) {
+      const indicator = document.getElementById('updateIndicator');
+      indicator.textContent = message;
+      indicator.classList.add('show');
+      setTimeout(() => {
+        indicator.classList.remove('show');
+      }, 3000);
+    }
+
+    function connect() {
+      try {
+        ws = new WebSocket(wsUrl);
+        
+        ws.onopen = () => {
+          console.log('WebSocket connected');
+          document.getElementById('statusIndicator').classList.add('connected');
+          document.getElementById('statusText').textContent = 'Connected';
+          reconnectAttempts = 0;
+          
+          // Fetch initial data
+          fetch('/api/tasks')
+            .then(res => res.json())
+            .then(data => {
+              tasks.clear();
+              data.forEach(task => tasks.set(task.id, task));
+              renderTable();
+            })
+            .catch(err => {
+              console.error('Error fetching initial data:', err);
+            });
+        };
+
+        ws.onmessage = (event) => {
+          try {
+            const message = JSON.parse(event.data);
+            
+            if (message.type === 'connected') {
+              console.log('WebSocket handshake complete');
+              return;
+            }
+
+            if (message.type === 'sync') {
+              tasks.clear();
+              message.data.forEach(task => tasks.set(task.id, task));
+              renderTable();
+              showUpdate('🔄 Database synced - all tasks updated');
+              return;
+            }
+
+            if (message.type === 'add') {
+              tasks.set(message.data.id, message.data);
+              renderTable();
+              showUpdate('➕ Task added: ' + message.data.title);
+              return;
+            }
+
+            if (message.type === 'update') {
+              tasks.set(message.data.id, message.data);
+              renderTable();
+              showUpdate('✏️ Task updated: ' + message.data.title);
+              return;
+            }
+
+            if (message.type === 'delete') {
+              tasks.delete(message.data.id);
+              renderTable();
+              showUpdate('🗑️ Task deleted');
+              return;
+            }
+
+            if (message.type === 'error') {
+              console.error('WebSocket error:', message.message);
+              showUpdate('❌ Error: ' + message.message);
+              return;
+            }
+          } catch (err) {
+            console.error('Error parsing WebSocket message:', err);
+          }
+        };
+
+        ws.onerror = (error) => {
+          console.error('WebSocket error:', error);
+          document.getElementById('statusIndicator').classList.remove('connected');
+          document.getElementById('statusText').textContent = 'Connection error';
+        };
+
+        ws.onclose = () => {
+          console.log('WebSocket closed');
+          document.getElementById('statusIndicator').classList.remove('connected');
+          document.getElementById('statusText').textContent = 'Disconnected';
+          
+          // Attempt to reconnect
+          if (reconnectAttempts < maxReconnectAttempts) {
+            reconnectAttempts++;
+            const delay = Math.min(1000 * Math.pow(2, reconnectAttempts), 10000);
+            document.getElementById('statusText').textContent = `Reconnecting... (${reconnectAttempts}/${maxReconnectAttempts})`;
+            setTimeout(connect, delay);
+          } else {
+            document.getElementById('statusText').textContent = 'Connection failed';
+          }
+        };
+      } catch (error) {
+        console.error('Error connecting WebSocket:', error);
+        document.getElementById('statusText').textContent = 'Connection failed';
+      }
+    }
+
+    // Start connection
+    connect();
+  </script>
+</body>
+</html>

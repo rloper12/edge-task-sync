@@ -6,6 +6,7 @@ import {
   addTask,
   deleteTask,
   getAllTasks,
+  getTask,
   updateTask,
 } from "./lib/data/server/serverTasks";
 import { Task } from "./types/task";
@@ -95,7 +96,12 @@ tasks.get(
       onOpen: (event, ws) => {
         console.log("WebSocket connection established");
         clients.add(ws);
-        ws.send(JSON.stringify({ type: "connected", message: "WebSocket connection established" }));
+        ws.send(
+          JSON.stringify({
+            type: "connected",
+            message: "WebSocket connection established",
+          }),
+        );
       },
       onMessage(event, ws) {
         console.log(`Client message, type: ${event.type}, data: ${event.data}`);
@@ -122,12 +128,26 @@ tasks.get(
               sendError(
                 ws,
                 "Invalid task array format in sync message. Expected an array of tasks.",
-                localTasks
+                localTasks,
               );
               return;
             }
 
             const syncResults = syncTasks(serverTasks, localTasks);
+            
+            // Persist sync results to server database
+            for (const task of syncResults) {
+              const existingTask = getTask(task.id);
+              if (existingTask) {
+                // Task exists, update it
+                const { id, ...updates } = task;
+                updateTask(id, updates);
+              } else {
+                // Task doesn't exist, add it
+                addTask(task);
+              }
+            }
+            // Send results to client
             broadcast(JSON.stringify({ type: "sync", data: syncResults }));
             return;
           }
@@ -139,7 +159,7 @@ tasks.get(
               sendError(
                 ws,
                 "Invalid task format in update message. Expected a valid task object.",
-                data
+                data,
               );
               return;
             }
@@ -167,7 +187,7 @@ tasks.get(
               sendError(
                 ws,
                 "Invalid task format in add message. Expected a valid task object.",
-                data
+                data,
               );
               return;
             }
@@ -190,7 +210,7 @@ tasks.get(
               sendError(
                 ws,
                 "Invalid delete message format. Expected an object with an 'id' property.",
-                data
+                data,
               );
               return;
             }
@@ -205,7 +225,7 @@ tasks.get(
               JSON.stringify({
                 type: "delete",
                 data: { id: data.id, success: true },
-              })
+              }),
             );
             return;
           }
@@ -214,31 +234,95 @@ tasks.get(
           sendError(
             ws,
             `Unknown message type: ${messageData.type}. Supported types are: sync, update, add, delete.`,
-            messageData.type
+            messageData.type,
           );
         } catch (error) {
           const errorMessage =
             error instanceof Error ? error.message : "Unknown error";
-          sendError(ws, `Unexpected error processing message: ${errorMessage}`, error);
+          sendError(
+            ws,
+            `Unexpected error processing message: ${errorMessage}`,
+            error,
+          );
         }
       },
       onClose: (event, ws) => {
         console.log("Connection closed");
         clients.delete(ws);
       },
+      onError: (event, ws) => {
+        console.error("WebSocket error:", event);
+      },
     };
   }),
 );
+
+tasks.get("/", (c) => {
+  try {
+    const tasks = getAllTasks();
+    return c.json(tasks);
+  } catch (error) {
+    console.error("Error fetching tasks:", error);
+    return c.json({ error: "Failed to fetch tasks" }, 500);
+  }
+});
+
+tasks.get("/:id", (c) => {
+  const id = c.req.param("id");
+  try {
+    const task = getTask(id);
+    return c.json(task);
+  } catch (error) {
+    console.error(`Error fetching task with id: ${id}`, error);
+    return c.json({ error: `Faild to fetch task with id: ${id}` }, 500);
+  }
+});
 
 const app = new Hono();
 app.use(logger());
 app.route("/api/tasks", tasks);
 
+// Live database viewer with WebSocket
+app.get("/db-view", async (c) => {
+  try {
+    const htmlTemplate = await Bun.file("./views/db-view.html").text();
+    
+    // Determine WebSocket URL based on request
+    const host = c.req.header("host") || "localhost:3000";
+    const protocol = c.req.header("x-forwarded-proto") || 
+                     (host.includes("localhost") || host.includes("127.0.0.1") ? "http" : "https");
+    const wsProtocol = protocol === "https" ? "wss" : "ws";
+    const wsUrl = `${wsProtocol}://${host}/api/tasks/ws`;
+    
+    // Replace placeholder with actual WebSocket URL
+    const html = htmlTemplate.replace("{{WS_URL}}", wsUrl);
+    
+    return c.html(html);
+  } catch (error) {
+    console.error("Error serving db-view:", error);
+    return c.text("Error loading database viewer", 500);
+  }
+});
+
 app.get("/", (c) => {
   return c.text("Hello Hono!");
 });
 
-export default {
+// Set port via environment variable
+if (!process.env.PORT) {
+  process.env.PORT = '3000';
+}
+
+const port = Number(process.env.PORT || 3000);
+
+const server = Bun.serve({
+  port,
+  hostname: '0.0.0.0',
   fetch: app.fetch,
   websocket,
-};
+});
+
+console.log(`Server running on http://${server.hostname}:${server.port}`);
+console.log(`Database viewer: http://localhost:${server.port}/db-view`);
+console.log(`WebSocket endpoint: ws://localhost:${server.port}/api/tasks/ws`);
+console.log(`For devices/emulators, use your machine's IP: ws://<YOUR_IP>:${server.port}/api/tasks/ws`);

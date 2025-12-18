@@ -2,13 +2,14 @@ import { Task } from "../../../types/task";
 import { db } from "./sqlite";
 
 function rowToTask(row: any): Task {
+  const now = Date.now();
   return {
     id: row.id,
     title: row.title,
     description: row.description || undefined,
     completed: row.completed === 1,
-    createdAt: row.created_at,
-    updatedAt: row.updated_at,
+    createdAt: row.created_at ?? now,
+    updatedAt: row.updated_at ?? now,
   };
 }
 
@@ -112,48 +113,4 @@ export function deleteTask(id: string): boolean {
 
   const result = stmt.executeSync([id]);
   return result.changes > 0;
-}
-
-// Seed function to pre-populate database with initial data
-export function seedDatabase() {
-  const existingTasks = getAllTasks();
-  if (existingTasks.length > 0) {
-    return;
-  }
-  const now = Date.now();
-  const tasks: Task[] = [
-    {
-      id: "task-1",
-      title: "Complete quarterly report",
-      description: "Finish the Q4 financial report and submit to management",
-      completed: false,
-      createdAt: now,
-      updatedAt: now,
-    },
-    {
-      id: "task-2",
-      title: "Team meeting preparation",
-      description: "Prepare agenda and slides for the weekly team meeting",
-      completed: true,
-      createdAt: now,
-      updatedAt: now,
-    },
-    {
-      id: "task-3",
-      title: "Review code pull requests",
-      description: "Review and approve pending pull requests from the team",
-      completed: false,
-      createdAt: now,
-      updatedAt: now,
-    },
-    {
-      id: "task-4",
-      title: "Update project documentation",
-      description: "Update API documentation and user guides",
-      completed: false,
-      createdAt: now,
-      updatedAt: now,
-    },
-  ];
-  tasks.forEach((task) => addTask(task));
 }
