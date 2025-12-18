@@ -103,7 +103,7 @@ export function SyncSuccessToast({ visible, message, onHide }: SyncSuccessToastP
 const styles = StyleSheet.create({
   container: {
     position: 'absolute',
-    top: 90,
+    top: 95,
     left: 0,
     right: 0,
     zIndex: 9999,

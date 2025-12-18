@@ -1,11 +1,12 @@
 // WebSocket server configuration
-// Can be overridden with WS_SERVER_URL environment variable
-// For Expo: if Metro is on 10.0.0.22, use that IP for device connections
-// For iOS Simulator/Web: localhost works fine
-const WS_SERVER_URL = process.env.WS_SERVER_URL ||  `ws://10.0.0.22:3000/api/tasks/ws`;
-const BASE_SERVER_URL = process.env.BASE_SERVER_URL || 'http://10.0.0.22:3000'
+// Configure via .env file or environment variables
+// For physical devices: use your machine's local IP address
+// For iOS Simulator/Web/Android Emulator: localhost works fine
+// 
+// Note: Expo requires EXPO_PUBLIC_ prefix for client-side environment variables
+const WS_SERVER_URL = process.env.EXPO_PUBLIC_WS_SERVER_URL || process.env.WS_SERVER_URL || 'ws://localhost:3000/api/tasks/ws';
+const BASE_SERVER_URL = process.env.EXPO_PUBLIC_BASE_SERVER_URL || process.env.BASE_SERVER_URL || 'http://localhost:3000';
 
-// 'ws://localhost:3000/api/tasks/ws'
 export const config = {
   wsServerUrl: WS_SERVER_URL,
   baseServerUrl: BASE_SERVER_URL

@@ -4,7 +4,7 @@ import * as localTasksModule from '@/lib/data/local/tasks';
 import { setWebSocketConnection } from '@/lib/data/tasksController';
 import { Task } from '@/types/task';
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
-import { useWifiContext } from './useWifiContext';
+import { useConnectionContext } from './useConnectionContext';
 
 type WebSocketMessage = 
   | { type: 'sync'; data: Task[] }
@@ -31,7 +31,7 @@ export const useWebSocketContext = () => {
 };
 
 export const WebSocketContextProvider = ({ children }: { children: React.ReactNode }) => {
-  const { isWifiConnected } = useWifiContext();
+  const { isWifiConnected, setIsServerConnected } = useConnectionContext();
   const [isConnected, setIsConnected] = useState(false);
   const [isConnecting, setIsConnecting] = useState(false);
   const [syncSuccessMessage, setSyncSuccessMessage] = useState<string | null>(null);
@@ -145,6 +145,7 @@ export const WebSocketContextProvider = ({ children }: { children: React.ReactNo
         console.log('WebSocket connection opened');
         setIsConnected(true);
         setIsConnecting(false);
+        setIsServerConnected(true);
         reconnectAttemptsRef.current = 0;
         
         setWebSocketConnection(true, sendMessage);
@@ -169,6 +170,7 @@ export const WebSocketContextProvider = ({ children }: { children: React.ReactNo
         console.log('WebSocket connection closed', event.code, event.reason);
         setIsConnected(false);
         setIsConnecting(false);
+        setIsServerConnected(false);
         wsRef.current = null;
         
         // Update with connection status
@@ -192,7 +194,7 @@ export const WebSocketContextProvider = ({ children }: { children: React.ReactNo
       console.log('Failed to create WebSocket (handled):', error);
       setIsConnecting(false);
     }
-  }, [isWifiConnected, handleServerMessage, sendMessage]);
+  }, [isWifiConnected, handleServerMessage, sendMessage, setIsServerConnected]);
 
   const disconnect = useCallback(() => {
     if (reconnectTimeoutRef.current) {
@@ -209,10 +211,11 @@ export const WebSocketContextProvider = ({ children }: { children: React.ReactNo
     
     setIsConnected(false);
     setIsConnecting(false);
+    setIsServerConnected(false);
     
     // Update controller with connection status
     setWebSocketConnection(false, null);
-  }, []);
+  }, [setIsServerConnected]);
 
   // Connect/disconnect based on WiFi status
   useEffect(() => {

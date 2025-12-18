@@ -5,8 +5,8 @@ import { useEffect } from 'react';
 import 'react-native-reanimated';
 
 import { useColorScheme } from '@/hooks/use-color-scheme';
+import { ConnectionContextProvider } from '@/hooks/useConnectionContext';
 import { WebSocketContextProvider } from '@/hooks/useWebSocketContext';
-import { WifiContextProvider } from '@/hooks/useWifiContext';
 import { initializeDatabase } from '@/lib/data/local/sqlite';
 
 export const unstable_settings = {
@@ -23,7 +23,7 @@ export default function RootLayout() {
 
 
   return (
-    <WifiContextProvider>
+    <ConnectionContextProvider>
       <WebSocketContextProvider>
         <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
           <Stack>
@@ -39,6 +39,6 @@ export default function RootLayout() {
           <StatusBar style="auto" />
         </ThemeProvider>
       </WebSocketContextProvider>
-    </WifiContextProvider>
+    </ConnectionContextProvider>
   );
 }

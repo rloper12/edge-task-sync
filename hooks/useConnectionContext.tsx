@@ -1,22 +1,25 @@
 import NetInfo from '@react-native-community/netinfo';
 import { createContext, useContext, useEffect, useMemo, useState } from 'react';
 
-type WifiContext = {
+type ConnectionContext = {
   isWifiConnected: boolean;
+  isServerConnected: boolean;
+  setIsServerConnected: (connected: boolean) => void;
 }
 
-const WifiContext = createContext<WifiContext | null>(null);
+const ConnectionContext = createContext<ConnectionContext | null>(null);
 
-export const useWifiContext = () => {
-  const context = useContext(WifiContext);
+export const useConnectionContext = () => {
+  const context = useContext(ConnectionContext);
   if (!context) {
-    throw new Error("useWifiContext must be used inside of WifiContextProvider");
+    throw new Error("useConnectionContext must be used inside of ConnectionContextProvider");
   }
   return context;
 }
 
-export const WifiContextProvider = ({ children }: { children: React.ReactNode }) => {
+export const ConnectionContextProvider = ({ children }: { children: React.ReactNode }) => {
   const [isWifiConnected, setIsWifiConnected] = useState(false);
+  const [isServerConnected, setIsServerConnected] = useState(false);
   
   useEffect(() => {
     // Check initial connection status
@@ -42,13 +45,14 @@ export const WifiContextProvider = ({ children }: { children: React.ReactNode })
   }, []);
   
   const contextValue = useMemo(() => ({
-    isWifiConnected
-  }), [isWifiConnected]);
+    isWifiConnected,
+    isServerConnected,
+    setIsServerConnected
+  }), [isWifiConnected, isServerConnected]);
   
   return (
-    <WifiContext.Provider value={contextValue}>
+    <ConnectionContext.Provider value={contextValue}>
       {children}
-    </WifiContext.Provider>
+    </ConnectionContext.Provider>
   );
 }
-

@@ -48,5 +48,6 @@
     "typescript": "~5.9.2",
     "@types/bun": "latest"
   },
+  "license": "MIT",
   "private": true
 }
